@@ -37,7 +37,7 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
     },
   });
   const data = await res.json();
-  if (res.status === 401) { clearToken(); window.location.href = '/admin'; }
+  if (res.status === 401) { clearToken(); }
   return data;
 }
 
