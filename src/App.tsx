@@ -42,13 +42,22 @@ function AppContent() {
   const [page, setPage] = useState<Page>('dashboard');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [chatRequestId, setChatRequestId] = useState<string | null>(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(() => {
-    // Show install prompt if on mobile and not yet installed
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  useEffect(() => {
     const isInstalled = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    const isMobile = /iPhone|iPad|Android|Opera Mini|IEMobile|WPDesktop/.test(navigator.userAgent);
     const hasShownPrompt = sessionStorage.getItem('install_prompt_shown');
-    return !isInstalled && isMobile && !hasShownPrompt;
-  });
+    if (isInstalled || hasShownPrompt) return;
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      (window as any).deferredPrompt = e;
+      setTimeout(() => setShowInstallPrompt(true), 2000);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   // Show welcome toast on first load
   useEffect(() => {
