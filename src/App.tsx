@@ -19,6 +19,7 @@ import RatingPage from './pages/RatingPage';
 import PaymentPage from './pages/PaymentPage';
 import WalletPage from './pages/WalletPage';
 import InstallPage from './pages/InstallPage';
+import MonitoringHistoryPage from './pages/MonitoringHistoryPage';
 
 type Page =
   | 'dashboard'
@@ -32,7 +33,8 @@ type Page =
   | 'financial'
   | 'rating'
   | 'payment'
-  | 'wallet';
+  | 'wallet'
+  | 'monitoring';
 
 function AppContent() {
   const { user, profile, loading } = useAuth();
@@ -112,7 +114,7 @@ function AppContent() {
   const isCaregiver = profile.user_type === 'caregiver';
 
   // Full-screen pages (no bottom nav)
-  const isFullScreen = page === 'chat' || page === 'rating' || page === 'payment' || page === 'new-request';
+  const isFullScreen = page === 'chat' || page === 'rating' || page === 'payment' || page === 'new-request' || page === 'monitoring';
 
   // Chat page
   if (page === 'chat' && chatRequestId) {
@@ -158,6 +160,20 @@ function AppContent() {
             setSelectedRequestId(null);
             setPage('dashboard');
             showToast('Pagamento confirmado com sucesso!', 'success');
+          }}
+        />
+      </Layout>
+    );
+  }
+
+  // Monitoring history page
+  if (page === 'monitoring' && selectedRequestId) {
+    return (
+      <Layout page="" onNavigate={() => {}} hideNav>
+        <MonitoringHistoryPage
+          requestId={selectedRequestId}
+          onBack={() => {
+            setPage('request-detail');
           }}
         />
       </Layout>
@@ -214,7 +230,7 @@ function AppContent() {
           }}
           onOpenMonitoring={(id) => {
             setSelectedRequestId(id);
-            setPage('request-detail');
+            setPage('monitoring');
           }}
           onOpenPayment={(id) => {
             setSelectedRequestId(id);
@@ -289,7 +305,7 @@ function AppContent() {
     );
   };
 
-  const navPage = page === 'new-request' || page === 'request-detail' || page === 'wallet' ? 'dashboard' : page;
+  const navPage = ['new-request', 'request-detail', 'wallet', 'monitoring'].includes(page) ? 'dashboard' : page;
 
   return (
     <>

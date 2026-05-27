@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, ChevronDown, CalendarClock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
@@ -14,16 +14,6 @@ const CARE_TYPES = [
   'Cuidados Noturnos',
 ];
 
-const DURATIONS = [
-  { label: '1 hora', minutes: 60 },
-  { label: '2 horas', minutes: 120 },
-  { label: '3 horas', minutes: 180 },
-  { label: '4 horas', minutes: 240 },
-  { label: '6 horas', minutes: 360 },
-  { label: '8 horas', minutes: 480 },
-  { label: '12 horas', minutes: 720 },
-];
-
 interface NewRequestPageProps {
   onBack: () => void;
   onSuccess: (requestId: string) => void;
@@ -35,17 +25,32 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     care_type: '',
-    scheduled_date: '',
-    scheduled_time: '',
-    duration_minutes: 120,
+    start_date: '',
+    start_time: '',
+    end_date: '',
+    end_time: '',
     location_address: '',
     proposed_value: '',
     observations: '',
   });
 
-  const update = (key: keyof typeof form, value: string | number) => {
+  const update = (key: keyof typeof form, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
     setError('');
+  };
+
+  const getDurationLabel = () => {
+    if (!form.start_date || !form.start_time || !form.end_date || !form.end_time) return null;
+    const start = new Date(`${form.start_date}T${form.start_time}`);
+    const end = new Date(`${form.end_date}T${form.end_time}`);
+    const diffMs = end.getTime() - start.getTime();
+    if (diffMs <= 0) return null;
+    const totalMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hours === 0) return `${mins} minutos`;
+    if (mins === 0) return `${hours} hora${hours > 1 ? 's' : ''}`;
+    return `${hours}h ${mins}min`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,8 +61,17 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
       return;
     }
 
+    const scheduled_at = new Date(`${form.start_date}T${form.start_time}`);
+    const scheduled_end_at = new Date(`${form.end_date}T${form.end_time}`);
+
+    if (scheduled_end_at <= scheduled_at) {
+      setError('O horário de término deve ser após o início.');
+      return;
+    }
+
+    const durationMinutes = Math.floor((scheduled_end_at.getTime() - scheduled_at.getTime()) / 60000);
+
     setLoading(true);
-    const scheduled_at = new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString();
 
     const { data, error: err } = await supabase
       .from('care_requests')
@@ -66,8 +80,9 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
         requester_id: profile.id,
         care_type: form.care_type,
         status: 'searching',
-        scheduled_at,
-        duration_minutes: form.duration_minutes,
+        scheduled_at: scheduled_at.toISOString(),
+        scheduled_end_at: scheduled_end_at.toISOString(),
+        duration_minutes: durationMinutes,
         location_address: form.location_address,
         proposed_value: Number(form.proposed_value),
         observations: form.observations,
@@ -94,6 +109,7 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
   };
 
   const today = new Date().toISOString().split('T')[0];
+  const durationLabel = getDurationLabel();
 
   return (
     <div className="px-4 pt-4 pb-8 space-y-5">
@@ -133,54 +149,74 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
           </div>
         </div>
 
-        {/* Date & time */}
+        {/* Date & time — start */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2">
             <Clock size={16} className="text-blue-600" />
-            <p className="font-semibold text-slate-700 text-sm">Data e Horário</p>
+            <p className="font-semibold text-slate-700 text-sm">Início do Atendimento</p>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="p-4 grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Data</label>
+              <label className="block text-xs text-slate-500 mb-1.5">Data de início</label>
               <input
                 type="date"
-                value={form.scheduled_date}
+                value={form.start_date}
                 min={today}
-                onChange={e => update('scheduled_date', e.target.value)}
+                onChange={e => update('start_date', e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Horário</label>
+              <label className="block text-xs text-slate-500 mb-1.5">Horário de início</label>
               <input
                 type="time"
-                value={form.scheduled_time}
-                onChange={e => update('scheduled_time', e.target.value)}
+                value={form.start_time}
+                onChange={e => update('start_time', e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Date & time — end */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2">
+            <CalendarClock size={16} className="text-blue-600" />
+            <p className="font-semibold text-slate-700 text-sm">Término do Atendimento</p>
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1.5">Data de término</label>
+              <input
+                type="date"
+                value={form.end_date}
+                min={form.start_date || today}
+                onChange={e => update('end_date', e.target.value)}
+                required
+                className="w-full px-3 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Duração estimada</label>
-              <div className="grid grid-cols-3 gap-2">
-                {DURATIONS.map(d => (
-                  <button
-                    key={d.minutes}
-                    type="button"
-                    onClick={() => update('duration_minutes', d.minutes)}
-                    className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      form.duration_minutes === d.minutes
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
+              <label className="block text-xs text-slate-500 mb-1.5">Horário de término</label>
+              <input
+                type="time"
+                value={form.end_time}
+                onChange={e => update('end_time', e.target.value)}
+                required
+                className="w-full px-3 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
             </div>
           </div>
+          {durationLabel && (
+            <div className="px-4 pb-4">
+              <div className="bg-blue-50 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                <Clock size={14} className="text-blue-500" />
+                <p className="text-sm text-blue-700 font-medium">Duração: {durationLabel}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Location */}
