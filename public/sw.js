@@ -35,6 +35,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
+  // Only handle http/https — ignore chrome-extension:// and other schemes
+  if (!event.request.url.startsWith('http')) return;
+
   // Skip Supabase API calls - always fetch from network
   if (event.request.url.includes('supabase.co')) {
     event.respondWith(fetch(event.request));
