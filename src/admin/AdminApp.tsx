@@ -11,10 +11,11 @@ import IdentityPage from './pages/IdentityPage';
 import LogsPage from './pages/LogsPage';
 import SupportPage from './pages/SupportPage';
 import SettingsPage from './pages/SettingsPage';
+import AdminsPage from './pages/AdminsPage';
 
 export type AdminPage =
   | 'dashboard' | 'users' | 'caregivers' | 'requests'
-  | 'financial' | 'identity' | 'logs' | 'support' | 'settings';
+  | 'financial' | 'identity' | 'logs' | 'support' | 'settings' | 'admins';
 
 export default function AdminApp() {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
@@ -50,16 +51,17 @@ export default function AdminApp() {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard admin={admin} />;
-      case 'users': return <UsersPage admin={admin} />;
+      case 'dashboard':  return <Dashboard admin={admin} />;
+      case 'users':      return <UsersPage admin={admin} />;
       case 'caregivers': return <CaregiversPage admin={admin} />;
-      case 'requests': return <RequestsPage admin={admin} />;
-      case 'financial': return <FinancialPage admin={admin} />;
-      case 'identity': return <IdentityPage admin={admin} />;
-      case 'logs': return <LogsPage admin={admin} />;
-      case 'support': return <SupportPage admin={admin} />;
-      case 'settings': return <SettingsPage admin={admin} />;
-      default: return <Dashboard admin={admin} />;
+      case 'requests':   return <RequestsPage admin={admin} />;
+      case 'financial':  return <FinancialPage admin={admin} />;
+      case 'identity':   return <IdentityPage admin={admin} />;
+      case 'logs':       return <LogsPage admin={admin} />;
+      case 'support':    return <SupportPage admin={admin} />;
+      case 'settings':   return <SettingsPage admin={admin} />;
+      case 'admins':     return <AdminsPage admin={admin} />;
+      default:           return <Dashboard admin={admin} />;
     }
   };
 
