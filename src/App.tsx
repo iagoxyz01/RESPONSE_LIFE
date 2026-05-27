@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import PatientDashboard from './pages/patient/PatientDashboard';
 import NewRequestPage from './pages/patient/NewRequestPage';
 import RequestDetailPage from './pages/patient/RequestDetailPage';
+import EditRequestPage from './pages/patient/EditRequestPage';
 import CaregiverDashboard from './pages/caregiver/CaregiverDashboard';
 import CaregiverRequestPage from './pages/caregiver/CaregiverRequestPage';
 import FinancialPage from './pages/caregiver/FinancialPage';
@@ -24,6 +25,7 @@ import MonitoringHistoryPage from './pages/MonitoringHistoryPage';
 type Page =
   | 'dashboard'
   | 'new-request'
+  | 'edit-request'
   | 'request-detail'
   | 'chat'
   | 'chat-list'
@@ -114,7 +116,7 @@ function AppContent() {
   const isCaregiver = profile.user_type === 'caregiver';
 
   // Full-screen pages (no bottom nav)
-  const isFullScreen = page === 'chat' || page === 'rating' || page === 'payment' || page === 'new-request' || page === 'monitoring';
+  const isFullScreen = page === 'chat' || page === 'rating' || page === 'payment' || page === 'new-request' || page === 'edit-request' || page === 'monitoring';
 
   // Chat page
   if (page === 'chat' && chatRequestId) {
@@ -196,6 +198,22 @@ function AppContent() {
     );
   }
 
+  // Edit request page
+  if (page === 'edit-request' && selectedRequestId && !isCaregiver) {
+    return (
+      <Layout page="" onNavigate={() => {}} hideNav>
+        <EditRequestPage
+          requestId={selectedRequestId}
+          onBack={() => setPage('request-detail')}
+          onSuccess={() => {
+            setPage('request-detail');
+            showToast('Solicitação atualizada com sucesso!', 'success');
+          }}
+        />
+      </Layout>
+    );
+  }
+
   const renderContent = () => {
     if (page === 'request-detail' && selectedRequestId) {
       if (isCaregiver) {
@@ -239,6 +257,10 @@ function AppContent() {
           onRate={(id) => {
             setSelectedRequestId(id);
             setPage('rating');
+          }}
+          onEdit={(id) => {
+            setSelectedRequestId(id);
+            setPage('edit-request');
           }}
         />
       );
@@ -305,7 +327,7 @@ function AppContent() {
     );
   };
 
-  const navPage = ['new-request', 'request-detail', 'wallet', 'monitoring'].includes(page) ? 'dashboard' : page;
+  const navPage = ['new-request', 'edit-request', 'request-detail', 'wallet', 'monitoring'].includes(page) ? 'dashboard' : page;
 
   return (
     <>
