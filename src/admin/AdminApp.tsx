@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getToken, getAdmin, clearToken, type AdminUser } from './lib/api';
+import { getToken, getAdmin, setAdmin as saveAdmin, clearToken, api, type AdminUser } from './lib/api';
 import AdminLogin from './pages/AdminLogin';
 import AdminLayout from './components/AdminLayout';
 import Dashboard from './pages/Dashboard';
@@ -25,8 +25,29 @@ export default function AdminApp() {
   useEffect(() => {
     const token = getToken();
     const saved = getAdmin();
-    if (token && saved) setAdmin(saved);
-    setLoading(false);
+
+    if (!token || !saved) {
+      setLoading(false);
+      return;
+    }
+
+    // Validate token and get fresh admin data (permissions, role, etc.)
+    api.me()
+      .then(res => {
+        if (res?.admin) {
+          const fresh: AdminUser = { ...saved, ...res.admin };
+          saveAdmin(fresh);
+          setAdmin(fresh);
+        } else {
+          // Token inválido — limpar e mostrar login
+          clearToken();
+        }
+      })
+      .catch(() => {
+        // Sem rede — usar dados em cache para não deslogar offline
+        setAdmin(saved);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleLogin = (adminUser: AdminUser) => {
@@ -41,8 +62,9 @@ export default function AdminApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3">
         <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-600 text-xs">Verificando sessão...</p>
       </div>
     );
   }
