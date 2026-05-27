@@ -45,8 +45,11 @@ export default function RegisterPage({ onBack }: RegisterPageProps) {
     });
     if (error) {
       setError(error.message || 'Erro ao criar conta. Tente novamente.');
+      setLoading(false);
+      return;
     }
     setLoading(false);
+    onBack();
   };
 
   return (

@@ -1,8 +1,9 @@
-const CACHE_NAME = 'response-live-v1';
+const CACHE_NAME = 'response-live-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg'
 ];
 
 // Install event - cache static assets
@@ -77,8 +78,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Response Live';
   const options = {
     body: data.body || 'Nova notificação',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/badge-72.png',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     data: data.data || {},
   };
 

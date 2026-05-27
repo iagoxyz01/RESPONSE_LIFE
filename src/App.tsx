@@ -38,6 +38,7 @@ function AppContent() {
   const { user, profile, loading } = useAuth();
   const { showToast } = useToast();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [registeredSuccess, setRegisteredSuccess] = useState(false);
   const [page, setPage] = useState<Page>('dashboard');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [chatRequestId, setChatRequestId] = useState<string | null>(null);
@@ -82,9 +83,21 @@ function AppContent() {
 
   if (!user || !profile) {
     if (authMode === 'register') {
-      return <RegisterPage onBack={() => setAuthMode('login')} />;
+      return (
+        <RegisterPage
+          onBack={() => {
+            setAuthMode('login');
+            setRegisteredSuccess(true);
+          }}
+        />
+      );
     }
-    return <LoginPage onShowRegister={() => setAuthMode('register')} />;
+    return (
+      <LoginPage
+        onShowRegister={() => { setAuthMode('register'); setRegisteredSuccess(false); }}
+        registeredSuccess={registeredSuccess}
+      />
+    );
   }
 
   const isCaregiver = profile.user_type === 'caregiver';

@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 
 interface LoginPageProps {
   onShowRegister: () => void;
+  registeredSuccess?: boolean;
 }
 
-export default function LoginPage({ onShowRegister }: LoginPageProps) {
+export default function LoginPage({ onShowRegister, registeredSuccess }: LoginPageProps) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +53,11 @@ export default function LoginPage({ onShowRegister }: LoginPageProps) {
           <h2 className="text-xl font-bold text-slate-900 mb-1">Entrar</h2>
           <p className="text-sm text-slate-500 mb-5">Acesse sua conta</p>
 
+          {registeredSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+              Conta criada com sucesso! Faca o login para continuar.
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
               {error}
