@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { User, Star, Shield, Phone, Mail, Briefcase, Edit3, LogOut, ChevronRight, Award } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { User, Star, Shield, Phone, Mail, Briefcase, Edit3, LogOut, ChevronRight, Award, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import PrivacySecurityPage from './PrivacySecurityPage';
@@ -30,6 +30,30 @@ export default function ProfilePage() {
     pix_key: caregiver?.pix_key || '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+    setUploadingPhoto(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${profile.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', profile.id);
+      await refreshProfile();
+    } catch (_err) {
+      // silently fail
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async () => {
     if (!profile) return;
@@ -77,13 +101,35 @@ export default function ProfilePage() {
 
   return (
     <div className="px-4 pt-4 pb-8 space-y-5">
+      {/* Hidden photo input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoUpload}
+      />
+
       {/* Avatar + Name */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-start gap-4">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0 ${
-            isCaregiver ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'
-          }`}>
-            {initials}
+          <div className="relative flex-shrink-0">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold overflow-hidden ${
+              isCaregiver ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'
+            }`}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                : initials}
+            </div>
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow-md hover:bg-blue-500 transition-colors disabled:opacity-60"
+            >
+              {uploadingPhoto
+                ? <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                : <Camera size={11} className="text-white" />}
+            </button>
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
