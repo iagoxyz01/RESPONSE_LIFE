@@ -2,15 +2,31 @@ import { useState } from 'react';
 import { User, Star, Shield, Phone, Mail, Briefcase, Edit3, LogOut, ChevronRight, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import PrivacySecurityPage from './PrivacySecurityPage';
+import MyRatingsPage from './MyRatingsPage';
+import IdentityVerificationPage from './IdentityVerificationPage';
+
+type SubPage = null | 'privacy' | 'ratings' | 'identity';
+
+function calcExperience(firstServiceAt: string | null | undefined): string {
+  if (!firstServiceAt) return '0 meses';
+  const start = new Date(firstServiceAt);
+  const now = new Date();
+  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (months < 1) return 'Menos de 1 mês';
+  if (months < 12) return `${months} ${months === 1 ? 'mês' : 'meses'}`;
+  const years = Math.floor(months / 12);
+  return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+}
 
 export default function ProfilePage() {
   const { profile, caregiver, patient, signOut, refreshProfile } = useAuth();
+  const [subPage, setSubPage] = useState<SubPage>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     full_name: profile?.full_name || '',
     phone: profile?.phone || '',
     bio: caregiver?.bio || '',
-    experience_years: caregiver?.experience_years || 0,
     pix_key: caregiver?.pix_key || '',
   });
   const [saving, setSaving] = useState(false);
@@ -27,11 +43,7 @@ export default function ProfilePage() {
     if (caregiver) {
       await supabase
         .from('caregivers')
-        .update({
-          bio: form.bio,
-          experience_years: form.experience_years,
-          pix_key: form.pix_key,
-        })
+        .update({ bio: form.bio, pix_key: form.pix_key })
         .eq('id', caregiver.id);
     }
 
@@ -40,9 +52,15 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
+  if (subPage === 'privacy') return <PrivacySecurityPage onBack={() => setSubPage(null)} />;
+  if (subPage === 'ratings') return <MyRatingsPage onBack={() => setSubPage(null)} />;
+  if (subPage === 'identity') return <IdentityVerificationPage onBack={() => setSubPage(null)} />;
+
   const isCaregiver = profile?.user_type === 'caregiver';
   const avgRating = isCaregiver ? caregiver?.avg_rating : patient?.avg_rating;
   const totalRatings = isCaregiver ? caregiver?.total_ratings : patient?.total_ratings;
+  const experience = calcExperience((caregiver as any)?.first_service_at);
+  const totalServices = caregiver?.total_services || 0;
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -50,6 +68,12 @@ export default function ProfilePage() {
     .map(w => w[0])
     .join('')
     .toUpperCase() || 'U';
+
+  const menuItems = [
+    { icon: Shield, label: 'Privacidade e Segurança', sub: 'privacy' as SubPage },
+    { icon: Award, label: 'Minhas Avaliações', sub: 'ratings' as SubPage },
+    ...(isCaregiver ? [{ icon: User, label: 'Verificação de Identidade', sub: 'identity' as SubPage }] : []),
+  ];
 
   return (
     <div className="px-4 pt-4 pb-8 space-y-5">
@@ -132,16 +156,6 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Anos de Experiência</label>
-                <input
-                  type="number"
-                  value={form.experience_years}
-                  onChange={e => setForm(f => ({ ...f, experience_years: Number(e.target.value) }))}
-                  min={0}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Chave Pix</label>
                 <input
                   type="text"
@@ -194,14 +208,14 @@ export default function ProfilePage() {
                 <Briefcase size={16} className="text-slate-400" />
                 <div className="flex-1">
                   <p className="text-xs text-slate-400">Experiência</p>
-                  <p className="text-sm text-slate-800 font-medium">{caregiver?.experience_years || 0} anos</p>
+                  <p className="text-sm text-slate-800 font-medium">{experience}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <Award size={16} className="text-slate-400" />
                 <div className="flex-1">
                   <p className="text-xs text-slate-400">Atendimentos</p>
-                  <p className="text-sm text-slate-800 font-medium">{caregiver?.total_services || 0} realizados</p>
+                  <p className="text-sm text-slate-800 font-medium">{totalServices} realizados</p>
                 </div>
               </div>
             </>
@@ -220,13 +234,10 @@ export default function ProfilePage() {
       {/* Menu items */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="divide-y divide-slate-50">
-          {[
-            { icon: Shield, label: 'Privacidade e Segurança' },
-            { icon: Award, label: 'Minhas Avaliações' },
-            { icon: User, label: 'Verificação de Identidade' },
-          ].map(({ icon: Icon, label }) => (
+          {menuItems.map(({ icon: Icon, label, sub }) => (
             <button
               key={label}
+              onClick={() => setSubPage(sub)}
               className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors"
             >
               <Icon size={16} className="text-slate-400" />
