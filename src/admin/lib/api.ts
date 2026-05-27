@@ -63,7 +63,15 @@ export const api = {
   },
 
   requests: {
-    list: (page = 1, status = '') => request(`requests?page=${page}&status=${status}`),
+    list: (page = 1, params?: { status?: string; search?: string; date_from?: string; date_to?: string; payment_method?: string }) => {
+      const q = new URLSearchParams({ page: String(page) });
+      if (params?.status) q.set('status', params.status);
+      if (params?.search) q.set('search', params.search);
+      if (params?.date_from) q.set('date_from', params.date_from);
+      if (params?.date_to) q.set('date_to', params.date_to);
+      if (params?.payment_method) q.set('payment_method', params.payment_method);
+      return request(`requests?${q}`);
+    },
     get: (id: string) => request(`requests/${id}`),
   },
 

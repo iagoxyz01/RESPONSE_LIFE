@@ -291,20 +291,109 @@ async function handleRequests(req: Request, admin: any, path: string[]): Promise
   const url = new URL(req.url);
   const page = parseInt(url.searchParams.get("page") || "1");
   const status = url.searchParams.get("status") || "";
+  const search = (url.searchParams.get("search") || "").trim();
+  const dateFrom = url.searchParams.get("date_from") || "";
+  const dateTo = url.searchParams.get("date_to") || "";
+  const paymentMethod = url.searchParams.get("payment_method") || "";
   const perPage = 20;
 
   if (req.method === "GET" && path.length === 0) {
-    let q = supabase.from("care_requests").select("*, patients(*, profiles(*)), caregivers(*, profiles(*))", { count: "exact" }).order("created_at", { ascending: false }).range((page-1)*perPage, page*perPage-1);
+    // When a text search is provided, run a text-search via postgres function
+    // to cover: atd_id, patient name, caregiver name, phone
+    if (search) {
+      // Detect ATD-XXXX pattern
+      const isAtdId = /^ATD-\d+$/i.test(search);
+      if (isAtdId) {
+        // Fast path — exact ATD ID match
+        const { data, count } = await supabase
+          .from("care_requests")
+          .select("*, patients(*, profiles(*)), caregivers(*, profiles(*))", { count: "exact" })
+          .ilike("atd_id", search.toUpperCase())
+          .order("created_at", { ascending: false })
+          .range((page-1)*perPage, page*perPage-1);
+        return json({ requests: data, total: count, page, perPage });
+      }
+
+      // Search across patient name, caregiver name, phone
+      // We fetch all matching profile ids first then filter care_requests
+      const [{ data: patientProfiles }, { data: caregiverProfiles }] = await Promise.all([
+        supabase.from("profiles").select("id").or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`),
+        supabase.from("profiles").select("id").or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`),
+      ]);
+
+      const profileIds = [...new Set([
+        ...(patientProfiles || []).map((p: any) => p.id),
+        ...(caregiverProfiles || []).map((p: any) => p.id),
+      ])];
+
+      // Also include partial ATD id search (e.g. "0001")
+      let q = supabase
+        .from("care_requests")
+        .select("*, patients(*, profiles(*)), caregivers(*, profiles(*))", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range((page-1)*perPage, page*perPage-1);
+
+      if (profileIds.length > 0) {
+        q = q.or(`requester_id.in.(${profileIds.join(",")}),atd_id.ilike.%${search}%`);
+      } else {
+        q = q.ilike("atd_id", `%${search}%`);
+      }
+
+      if (status) q = q.eq("status", status);
+      const { data, count } = await q;
+      return json({ requests: data, total: count, page, perPage });
+    }
+
+    // No text search — apply filters normally
+    let q = supabase
+      .from("care_requests")
+      .select("*, patients(*, profiles(*)), caregivers(*, profiles(*))", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range((page-1)*perPage, page*perPage-1);
+
     if (status) q = q.eq("status", status);
+    if (dateFrom) q = q.gte("scheduled_at", dateFrom);
+    if (dateTo) q = q.lte("scheduled_at", dateTo + "T23:59:59");
+
+    if (paymentMethod) {
+      // Join through payments table is not direct — we do a sub-query approach
+      const { data: paymentRequestIds } = await supabase
+        .from("payments")
+        .select("request_id")
+        .eq("payment_method", paymentMethod);
+      const ids = (paymentRequestIds || []).map((p: any) => p.request_id);
+      if (ids.length > 0) q = q.in("id", ids);
+      else return json({ requests: [], total: 0, page, perPage });
+    }
+
     const { data, count } = await q;
     return json({ requests: data, total: count, page, perPage });
   }
+
   if (req.method === "GET" && path[0]) {
-    const { data: req2 } = await supabase.from("care_requests").select("*, patients(*, profiles(*)), caregivers(*, profiles(*))").eq("id", path[0]).maybeSingle();
-    const { data: photos } = await supabase.from("monitoring_photos").select("*").eq("request_id", path[0]).order("taken_at", { ascending: true });
-    const { data: messages } = await supabase.from("messages").select("*, profiles(full_name, avatar_url)").eq("request_id", path[0]).order("created_at", { ascending: true });
-    const { data: payment } = await supabase.from("payments").select("*").eq("request_id", path[0]).maybeSingle();
-    return json({ request: req2, photos, messages, payment });
+    const idParam = path[0];
+    // Support lookup by ATD ID string (e.g. "ATD-0001") or UUID
+    const isAtdId = /^ATD-\d+$/i.test(idParam);
+    let q = supabase.from("care_requests").select("*, patients(*, profiles(*)), caregivers(*, profiles(*))");
+    if (isAtdId) q = q.ilike("atd_id", idParam.toUpperCase());
+    else q = q.eq("id", idParam);
+    const { data: req2 } = await q.maybeSingle();
+    if (!req2) return json({ error: "Atendimento não encontrado" }, 404);
+
+    const requestId = (req2 as any).id;
+    const [
+      { data: photos },
+      { data: messages },
+      { data: payment },
+      { data: logs },
+    ] = await Promise.all([
+      supabase.from("monitoring_photos").select("*").eq("request_id", requestId).order("taken_at", { ascending: true }),
+      supabase.from("messages").select("*, profiles(full_name, avatar_url)").eq("request_id", requestId).order("created_at", { ascending: true }),
+      supabase.from("payments").select("*").eq("request_id", requestId).maybeSingle(),
+      supabase.from("request_logs").select("*").eq("request_id", requestId).order("created_at", { ascending: true }),
+    ]);
+
+    return json({ request: req2, photos, messages, payment, logs });
   }
   return json({ error: "Rota não encontrada" }, 404);
 }

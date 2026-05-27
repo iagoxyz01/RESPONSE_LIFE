@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Clock, MapPin, Star, ChevronRight, Activity, CheckCircle, Search, AlertCircle } from 'lucide-react';
+import { Plus, Clock, MapPin, Star, ChevronRight, Activity, CheckCircle, Search, AlertCircle, Hash } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, CareRequest } from '../../lib/supabase';
 
@@ -128,7 +128,14 @@ export default function PatientDashboard({ onNewRequest, onViewRequest }: Patien
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="font-semibold text-slate-900 text-sm">{req.care_type}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-slate-900 text-sm">{req.care_type}</p>
+                        {(req as any).atd_id && (
+                          <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-bold px-1.5 py-0.5 bg-blue-50 text-blue-500 rounded-md">
+                            <Hash size={8} />{(req as any).atd_id}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 mt-1 text-slate-500 text-xs">
                         <Clock size={11} />
                         <span>{formatDate(req.scheduled_at)}</span>

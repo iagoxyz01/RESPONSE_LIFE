@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Star, MapPin, Clock, Camera, MessageCircle, CheckCircle, X,
   DollarSign, Briefcase, Shield, Award, Pencil, Trash2, AlertTriangle,
-  PhoneCall, XCircle, ChevronDown,
+  PhoneCall, XCircle, ChevronDown, Hash, Copy, Check,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, CareRequest, MonitoringPhoto } from '../../lib/supabase';
@@ -40,6 +40,22 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   completed:        { label: 'Finalizado',                 color: 'text-slate-600',  bg: 'bg-slate-100' },
   cancelled:        { label: 'Cancelado',                  color: 'text-red-600',    bg: 'bg-red-50' },
 };
+
+function AtdBadge({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button onClick={copy} title="Toque para copiar" className="inline-flex items-center gap-1 font-mono text-xs font-bold px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+      <Hash size={11} />
+      {id}
+      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} className="opacity-40" />}
+    </button>
+  );
+}
 
 const CANCEL_REASONS = [
   'Não preciso mais do atendimento',
@@ -261,6 +277,11 @@ export default function RequestDetailPage({
               )}
               <p className={`font-bold ${statusConfig.color}`}>{statusConfig.label}</p>
             </div>
+            {(request as any).atd_id && (
+              <div className="mt-2">
+                <AtdBadge id={(request as any).atd_id} />
+              </div>
+            )}
           </div>
           {request.status === 'searching' && (
             <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
