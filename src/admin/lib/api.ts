@@ -98,9 +98,17 @@ export const api = {
   },
 
   support: {
-    list: (status = 'open') => request(`support?status=${status}`),
-    update: (id: string, status: string) =>
-      request(`support/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+    list: (params?: { status?: string; search?: string; category?: string; page?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set('status', params.status);
+      if (params?.search) q.set('search', params.search);
+      if (params?.category) q.set('category', params.category);
+      if (params?.page) q.set('page', String(params.page));
+      return request(`support?${q}`);
+    },
+    get: (id: string) => request(`support/${id}`),
+    update: (id: string, data: { status?: string; admin_response?: string; admin_notes?: string }) =>
+      request(`support/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 
   admins: {

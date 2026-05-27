@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
-import { User, Star, Shield, Phone, Mail, Briefcase, Edit3, LogOut, ChevronRight, Award, Camera } from 'lucide-react';
+import { User, Star, Shield, Phone, Mail, Briefcase, Edit3, LogOut, ChevronRight, Award, Camera, HeadphonesIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import PrivacySecurityPage from './PrivacySecurityPage';
 import MyRatingsPage from './MyRatingsPage';
 import IdentityVerificationPage from './IdentityVerificationPage';
+import SupportCenterPage from './SupportCenterPage';
 
-type SubPage = null | 'privacy' | 'ratings' | 'identity';
+type SubPage = null | 'privacy' | 'ratings' | 'identity' | 'support';
 
 function calcExperience(firstServiceAt: string | null | undefined): string {
   if (!firstServiceAt) return '0 meses';
@@ -79,6 +80,7 @@ export default function ProfilePage() {
   if (subPage === 'privacy') return <PrivacySecurityPage onBack={() => setSubPage(null)} />;
   if (subPage === 'ratings') return <MyRatingsPage onBack={() => setSubPage(null)} />;
   if (subPage === 'identity') return <IdentityVerificationPage onBack={() => setSubPage(null)} />;
+  if (subPage === 'support') return <SupportCenterPage onBack={() => setSubPage(null)} />;
 
   const isCaregiver = profile?.user_type === 'caregiver';
   const avgRating = isCaregiver ? caregiver?.avg_rating : patient?.avg_rating;
@@ -97,6 +99,7 @@ export default function ProfilePage() {
     { icon: Shield, label: 'Privacidade e Segurança', sub: 'privacy' as SubPage },
     { icon: Award, label: 'Minhas Avaliações', sub: 'ratings' as SubPage },
     ...(isCaregiver ? [{ icon: User, label: 'Verificação de Identidade', sub: 'identity' as SubPage }] : []),
+    { icon: HeadphonesIcon, label: 'Central de Suporte', sub: 'support' as SubPage },
   ];
 
   return (

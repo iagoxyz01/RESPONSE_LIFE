@@ -475,19 +475,91 @@ async function handleLogs(req: Request, admin: any): Promise<Response> {
 async function handleSupport(req: Request, admin: any, path: string[]): Promise<Response> {
   if (!canAccess(admin, "support")) return json({ error: "Acesso negado" }, 403);
   const url = new URL(req.url);
-  const status = url.searchParams.get("status") || "open";
+  const status = url.searchParams.get("status") || "";
+  const search = (url.searchParams.get("search") || "").trim();
+  const category = url.searchParams.get("category") || "";
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const perPage = 25;
   const { ip, ua } = getClientInfo(req);
 
   if (req.method === "GET" && path.length === 0) {
-    const { data, count } = await supabase.from("support_tickets").select("*, profiles(full_name, email, avatar_url)", { count: "exact" }).eq("status", status).order("created_at", { ascending: false });
-    return json({ tickets: data, total: count });
+    let q = supabase
+      .from("support_tickets")
+      .select("*, profiles(full_name, email, phone, avatar_url, user_type)", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range((page - 1) * perPage, page * perPage - 1);
+
+    if (status) q = q.eq("status", status);
+    if (category) q = q.eq("category", category);
+
+    if (search) {
+      // Search by ticket_id (SUP-XXXX), or profile name/email, or request ATD id
+      const isTicketId = /^SUP-\d+$/i.test(search);
+      if (isTicketId) {
+        q = q.ilike("ticket_id", search.toUpperCase());
+      } else {
+        // Get matching profile ids
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+        const profileIds = (profiles || []).map((p: any) => p.id);
+
+        // Also check if it could be ATD id
+        const isAtdId = /^ATD-?\d+$/i.test(search);
+        if (isAtdId) {
+          const { data: reqs } = await supabase.from("care_requests").select("id").ilike("atd_id", `%${search.replace(/atd-?/i, 'ATD-')}%`);
+          const reqIds = (reqs || []).map((r: any) => r.id);
+          if (reqIds.length > 0 || profileIds.length > 0) {
+            const parts: string[] = [];
+            if (profileIds.length > 0) parts.push(`user_id.in.(${profileIds.join(",")})`);
+            if (reqIds.length > 0) parts.push(`request_id.in.(${reqIds.join(",")})`);
+            q = q.or(parts.join(","));
+          } else {
+            return json({ tickets: [], total: 0, page, perPage });
+          }
+        } else if (profileIds.length > 0) {
+          q = q.in("user_id", profileIds);
+        } else {
+          return json({ tickets: [], total: 0, page, perPage });
+        }
+      }
+    }
+
+    const { data, count } = await q;
+    return json({ tickets: data, total: count, page, perPage });
   }
+
+  if (req.method === "GET" && path[0]) {
+    const { data: ticket } = await supabase
+      .from("support_tickets")
+      .select("*, profiles(full_name, email, phone, avatar_url, user_type), care_requests(atd_id, care_type, status)")
+      .eq("id", path[0])
+      .maybeSingle();
+    if (!ticket) return json({ error: "Chamado não encontrado" }, 404);
+    return json({ ticket });
+  }
+
   if (req.method === "PUT" && path[0]) {
     const body = await req.json();
-    await supabase.from("support_tickets").update({ status: body.status, assigned_to: admin.id, resolved_at: body.status === "resolved" ? new Date().toISOString() : null }).eq("id", path[0]);
+    const update: any = { assigned_to: admin.id };
+
+    if (body.status) {
+      update.status = body.status;
+      if (body.status === "resolved" || body.status === "closed") {
+        update.resolved_at = new Date().toISOString();
+        update.resolved_by = admin.id;
+      }
+    }
+    if (body.admin_response !== undefined) update.admin_response = body.admin_response;
+    if (body.admin_notes !== undefined) update.admin_notes = body.admin_notes;
+    update.updated_at = new Date().toISOString();
+
+    await supabase.from("support_tickets").update(update).eq("id", path[0]);
     await log(admin.id, admin.email, "update_ticket", "support_ticket", path[0], { status: body.status }, ip, ua);
     return json({ success: true });
   }
+
   return json({ error: "Rota não encontrada" }, 404);
 }
 
