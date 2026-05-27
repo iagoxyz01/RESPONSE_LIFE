@@ -2,10 +2,33 @@ import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Star, MapPin, Clock, Camera, MessageCircle, CheckCircle, X,
   DollarSign, Briefcase, Shield, Award, Pencil, Trash2, AlertTriangle,
-  PhoneCall, XCircle, ChevronDown, Hash, Copy, Check,
+  PhoneCall, XCircle, ChevronDown, Hash, Copy, Check, AlertOctagon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, CareRequest, MonitoringPhoto } from '../../lib/supabase';
+
+const CANCEL_FEE_WINDOW_HOURS = 10;
+const CANCEL_FEE_RATE = 0.20;
+
+function calcCancellationFee(request: CareRequest): {
+  applies: boolean;
+  feeTotal: number;
+  feeCaregiver: number;
+  feePlatform: number;
+  hoursUntilStart: number;
+} {
+  const hasCaegiver = !!request.caregiver_id;
+  const feeEligible = hasCaegiver && ['scheduled', 'awaiting_payment'].includes(request.status);
+  const now = new Date();
+  const scheduledAt = new Date(request.scheduled_at);
+  const hoursUntilStart = (scheduledAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const withinWindow = hoursUntilStart > 0 && hoursUntilStart <= CANCEL_FEE_WINDOW_HOURS;
+  const applies = feeEligible && withinWindow;
+  const feeTotal = applies ? Math.round(Number(request.proposed_value) * CANCEL_FEE_RATE * 100) / 100 : 0;
+  const feeCaregiver = applies ? Math.round(feeTotal * 0.5 * 100) / 100 : 0;
+  const feePlatform = applies ? feeTotal - feeCaregiver : 0;
+  return { applies, feeTotal, feeCaregiver, feePlatform, hoursUntilStart };
+}
 
 interface RequestDetailPageProps {
   requestId: string;
@@ -167,7 +190,7 @@ export default function RequestDetailPage({
     setActionLoading(null);
   };
 
-  // ── Cancel request ─────────────────────────────────────────────────────────
+  // ── Cancel request (via Edge Function for backend fee logic) ──────────────
   const handleCancel = async () => {
     if (!profile || !request) return;
     const reason = cancelReason === 'Outro motivo' ? customReason : cancelReason;
@@ -175,26 +198,34 @@ export default function RequestDetailPage({
     setActionLoading('cancel');
     setError('');
 
-    const { error: err } = await supabase
-      .from('care_requests')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancelled_by: profile.id,
-        cancellation_reason: reason,
-      })
-      .eq('id', requestId)
-      .eq('requester_id', profile.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-    if (err) { setError('Erro ao cancelar. Tente novamente.'); }
-    else {
-      // Notify caregiver if there was one
-      if (request.caregiver_id) {
-        const { data: cg } = await supabase.from('caregivers').select('user_id').eq('id', request.caregiver_id).maybeSingle();
-        if (cg) await supabase.from('notifications').insert({ user_id: cg.user_id, type: 'request_cancelled', title: 'Atendimento cancelado', body: 'O paciente cancelou o atendimento.', request_id: requestId });
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cancel-request`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ request_id: requestId, reason }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Erro ao cancelar. Tente novamente.');
+      } else {
+        setShowCancelModal(false);
+        setCancelReason('');
+        setCustomReason('');
+        await fetchData();
       }
-      setShowCancelModal(false);
-      await fetchData();
+    } catch {
+      setError('Erro de conexão. Tente novamente.');
     }
     setActionLoading(null);
   };
@@ -235,6 +266,7 @@ export default function RequestDetailPage({
   const isPreAccepted = ['searching', 'awaiting_approval'].includes(request.status);
   const isAccepted = ACCEPTED_STATUSES.includes(request.status);
   const isFinal = FINAL_STATUSES.includes(request.status);
+  const feeCalc = calcCancellationFee(request);
 
   const confirmedCaregiver = request.caregiver_id
     ? candidates.find(c => c.id === request.caregiver_id) ?? null
@@ -548,20 +580,68 @@ export default function RequestDetailPage({
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-6">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-6">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="p-6 space-y-4">
+              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto">
                 <XCircle size={24} className="text-red-500" />
               </div>
-              <h3 className="text-center font-bold text-slate-900 text-lg">
-                {isAccepted ? 'Solicitar Cancelamento' : 'Cancelar Solicitação'}
-              </h3>
-              <p className="text-center text-sm text-slate-500 mt-1 mb-5">
-                {isAccepted
-                  ? 'O cuidador já aceitou. Informe o motivo do cancelamento.'
-                  : 'Informe o motivo para cancelar a solicitação.'}
-              </p>
+              <div className="text-center">
+                <h3 className="font-bold text-slate-900 text-lg">
+                  {isAccepted ? 'Solicitar Cancelamento' : 'Cancelar Solicitação'}
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  {isAccepted
+                    ? 'O cuidador já aceitou. Informe o motivo.'
+                    : 'Informe o motivo para cancelar.'}
+                </p>
+              </div>
 
-              <div className="relative mb-3">
+              {/* Fee warning — shown only when fee will apply */}
+              {feeCalc.applies && (
+                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertOctagon size={16} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-orange-800">Taxa de cancelamento</p>
+                      <p className="text-xs text-orange-700 mt-0.5">
+                        Cancelamentos com menos de {CANCEL_FEE_WINDOW_HOURS}h de antecedência possuem taxa de 20%.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 space-y-1.5 border border-orange-100">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Valor do atendimento</span>
+                      <span className="font-medium text-slate-800">R$ {Number(request.proposed_value).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Taxa total (20%)</span>
+                      <span className="font-semibold text-orange-700">R$ {feeCalc.feeTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="pt-1 border-t border-slate-100 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">→ Cuidador (10%)</span>
+                        <span className="text-emerald-600 font-medium">R$ {feeCalc.feeCaregiver.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">→ Plataforma (10%)</span>
+                        <span className="text-blue-600 font-medium">R$ {feeCalc.feePlatform.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Always-visible policy notice for accepted requests */}
+              {isAccepted && !feeCalc.applies && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-700">
+                    Cancelamentos com menos de {CANCEL_FEE_WINDOW_HOURS}h de antecedência possuem taxa de 20%.
+                    Faltam {feeCalc.hoursUntilStart > 0 ? `${Math.ceil(feeCalc.hoursUntilStart)}h` : 'menos de 1h'} para o início.
+                  </p>
+                </div>
+              )}
+
+              <div className="relative">
                 <select
                   value={cancelReason}
                   onChange={e => setCancelReason(e.target.value)}
@@ -579,20 +659,31 @@ export default function RequestDetailPage({
                   onChange={e => setCustomReason(e.target.value)}
                   placeholder="Descreva o motivo..."
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none mb-3"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
                 />
               )}
 
-              <div className="flex gap-3 mt-2">
-                <button onClick={() => { setShowCancelModal(false); setCancelReason(''); setCustomReason(''); }} className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowCancelModal(false); setCancelReason(''); setCustomReason(''); }}
+                  className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+                >
                   Voltar
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={actionLoading === 'cancel' || !cancelReason || (cancelReason === 'Outro motivo' && !customReason.trim())}
-                  className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className={`flex-1 py-3 rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                    feeCalc.applies
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
                 >
-                  {actionLoading === 'cancel' ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Cancelar'}
+                  {actionLoading === 'cancel'
+                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : feeCalc.applies
+                      ? `Confirmar (R$ ${feeCalc.feeTotal.toFixed(2)})`
+                      : 'Cancelar'}
                 </button>
               </div>
             </div>

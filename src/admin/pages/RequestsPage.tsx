@@ -273,6 +273,25 @@ export default function RequestsPage({ admin: _admin }: Props) {
                             {detail.request.cancelled_at && <p className="text-slate-500 text-[10px] mt-0.5">Em {fmtDate(detail.request.cancelled_at)}</p>}
                           </div>
                         )}
+                        {detail.request?.cancellation_fee_applied && (
+                          <div className="pt-2 border-t border-amber-900/30">
+                            <p className="text-amber-400 text-xs font-semibold mb-2">Taxa de cancelamento aplicada</p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-500 text-xs">Total da taxa (20%)</span>
+                                <span className="text-amber-300 text-xs font-bold">{fmt(detail.request.cancellation_fee_total)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-500 text-xs">Cuidador (10%)</span>
+                                <span className="text-emerald-400 text-xs font-medium">{fmt(detail.request.cancellation_fee_caregiver)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-500 text-xs">Plataforma (10%)</span>
+                                <span className="text-blue-400 text-xs font-medium">{fmt(detail.request.cancellation_fee_platform)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Patient & Caregiver */}
