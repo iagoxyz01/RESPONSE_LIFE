@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="description" content="Plataforma de contratação de cuidadores com monitoramento em tempo real, chat seguro e pagamentos integrados." />
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Response Live" />
+    <meta name="application-name" content="Response Live" />
+    <meta name="msapplication-TileColor" content="#2563eb" />
+    <meta name="msapplication-tap-highlight" content="no" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <title>Response Live — Cuidadores com Monitoramento em Tempo Real</title>
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Response Live — Cuidadores de Saúde" />
+    <meta property="og:description" content="Plataforma de contratação de cuidadores com monitoramento em tempo real." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/icon-512.png" />
+
+    <style>
+      /* Prevent flash of unstyled content */
+      html { background: #f8fafc; }
+      /* Splash screen animation */
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Splash screen shown before React loads -->
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;">
+        <div style="text-align:center;">
+          <div style="width:64px;height:64px;background:#2563eb;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:pulse 1.5s infinite;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
+            </svg>
+          </div>
+          <p style="color:#64748b;font-family:system-ui;font-size:14px;">Carregando...</p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('SW registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
