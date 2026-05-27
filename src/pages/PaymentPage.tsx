@@ -65,45 +65,9 @@ export default function PaymentPage({ requestId, onBack, onSuccess }: PaymentPag
     fetchRequest();
   }, [requestId]);
 
-  const updateCaregiverBalance = async (caregiverId: string, net: number, method: string) => {
-    // Buscar saldo atual
-    const { data: cg, error: fetchError } = await supabase
-      .from('caregivers')
-      .select('available_balance')
-      .eq('id', caregiverId)
-      .maybeSingle();
-
-    if (fetchError || !cg) {
-      console.error('Erro ao buscar cuidador:', fetchError);
-      return false;
-    }
-
-    const newBalance = (cg.available_balance || 0) + net;
-
-    // Atualizar saldo
-    const { error: updateError } = await supabase
-      .from('caregivers')
-      .update({ available_balance: newBalance })
-      .eq('id', caregiverId);
-
-    if (updateError) {
-      console.error('Erro ao atualizar saldo:', updateError);
-      return false;
-    }
-
-    // Registrar transação
-    const { error: transError } = await supabase.from('transactions').insert({
-      caregiver_id: caregiverId,
-      type: 'payment',
-      amount: net,
-      description: `Pagamento via ${method} - Solicitação ${requestId.substring(0, 8)}`,
-      reference_id: requestId,
-    });
-
-    if (transError) {
-      console.error('Erro ao registrar transação:', transError);
-    }
-
+  // Balance and transaction are now handled by the DB trigger on payments INSERT.
+  // This function is kept as a no-op to avoid breaking call sites.
+  const updateCaregiverBalance = async (_caregiverId: string, _net: number, _method: string) => {
     return true;
   };
 

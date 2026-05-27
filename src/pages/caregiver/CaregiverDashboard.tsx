@@ -8,7 +8,7 @@ interface CaregiverDashboardProps {
 }
 
 export default function CaregiverDashboard({ onViewRequest }: CaregiverDashboardProps) {
-  const { profile, caregiver } = useAuth();
+  const { profile, caregiver, refreshProfile } = useAuth();
   const [openRequests, setOpenRequests] = useState<CareRequest[]>([]);
   const [myRequests, setMyRequests] = useState<CareRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +55,7 @@ export default function CaregiverDashboard({ onViewRequest }: CaregiverDashboard
     const sub = supabase
       .channel('caregiver_dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'care_requests' }, fetchData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'caregivers', filter: `id=eq.${caregiver.id}` }, () => refreshProfile())
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [caregiver]);

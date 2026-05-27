@@ -11,7 +11,7 @@ interface CaregiverRequestPageProps {
 }
 
 export default function CaregiverRequestPage({ requestId, onBack, onOpenChat, onRate }: CaregiverRequestPageProps) {
-  const { caregiver, profile } = useAuth();
+  const { caregiver, profile, refreshProfile } = useAuth();
   const [request, setRequest] = useState<CareRequest | null>(null);
   const [photos, setPhotos] = useState<MonitoringPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +177,7 @@ export default function CaregiverRequestPage({ requestId, onBack, onOpenChat, on
     });
 
     await fetchData();
+    await refreshProfile();
     setActionLoading(false);
   };
 
