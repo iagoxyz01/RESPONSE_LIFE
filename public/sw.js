@@ -1,4 +1,4 @@
-const CACHE_NAME = 'response-live-v2';
+const CACHE_NAME = 'response-live-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,6 +37,13 @@ self.addEventListener('fetch', (event) => {
 
   // Skip Supabase API calls - always fetch from network
   if (event.request.url.includes('supabase.co')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Skip admin routes - always fetch from network (no caching)
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/admin')) {
     event.respondWith(fetch(event.request));
     return;
   }

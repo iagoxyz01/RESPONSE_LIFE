@@ -1,7 +1,5 @@
-import { StrictMode } from 'react';
+import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
-import AdminApp from './admin/AdminApp.tsx';
 import './index.css';
 
 window.addEventListener('appinstalled', () => {
@@ -10,8 +8,13 @@ window.addEventListener('appinstalled', () => {
 
 const isAdmin = window.location.pathname.startsWith('/admin');
 
+const App = lazy(() => import('./App.tsx'));
+const AdminApp = lazy(() => import('./admin/AdminApp.tsx'));
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {isAdmin ? <AdminApp /> : <App />}
+    <Suspense fallback={null}>
+      {isAdmin ? <AdminApp /> : <App />}
+    </Suspense>
   </StrictMode>
 );
