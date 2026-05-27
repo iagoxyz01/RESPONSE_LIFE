@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, ChevronDown, CreditCard, QrCode, Banknote } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
@@ -24,36 +24,6 @@ const DURATIONS = [
   { label: '12 horas', minutes: 720 },
 ];
 
-const PAYMENT_METHODS = [
-  {
-    id: 'card' as const,
-    label: 'Cartão de Crédito',
-    description: 'Cobrança automática após o serviço',
-    icon: CreditCard,
-    color: 'border-blue-500 bg-blue-50 text-blue-700',
-    iconColor: 'text-blue-600',
-    inactiveColor: 'border-slate-200 bg-white text-slate-600',
-  },
-  {
-    id: 'pix' as const,
-    label: 'Pix',
-    description: 'QR Code ou copia e cola após o serviço',
-    icon: QrCode,
-    color: 'border-green-500 bg-green-50 text-green-700',
-    iconColor: 'text-green-600',
-    inactiveColor: 'border-slate-200 bg-white text-slate-600',
-  },
-  {
-    id: 'cash' as const,
-    label: 'Dinheiro',
-    description: 'Pagamento presencial ao cuidador',
-    icon: Banknote,
-    color: 'border-amber-500 bg-amber-50 text-amber-700',
-    iconColor: 'text-amber-600',
-    inactiveColor: 'border-slate-200 bg-white text-slate-600',
-  },
-];
-
 interface NewRequestPageProps {
   onBack: () => void;
   onSuccess: (requestId: string) => void;
@@ -71,7 +41,6 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
     location_address: '',
     proposed_value: '',
     observations: '',
-    payment_method: '' as 'card' | 'pix' | 'cash' | '',
   });
 
   const update = (key: keyof typeof form, value: string | number) => {
@@ -84,14 +53,6 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
     if (!patient || !profile) return;
     if (Number(form.proposed_value) < 50) {
       setError('Valor mínimo é R$ 50,00');
-      return;
-    }
-    if (Number(form.proposed_value) > 500) {
-      setError('Valor máximo é R$ 500,00');
-      return;
-    }
-    if (!form.payment_method) {
-      setError('Selecione a forma de pagamento');
       return;
     }
 
@@ -110,7 +71,6 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
         location_address: form.location_address,
         proposed_value: Number(form.proposed_value),
         observations: form.observations,
-        payment_method: form.payment_method,
       })
       .select()
       .single();
@@ -134,9 +94,6 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
   };
 
   const today = new Date().toISOString().split('T')[0];
-
-  const fee = Number(form.proposed_value || 0) * 0.075;
-  const net = Number(form.proposed_value || 0) - fee;
 
   return (
     <div className="px-4 pt-4 pb-8 space-y-5">
@@ -248,7 +205,7 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2">
             <DollarSign size={16} className="text-blue-600" />
-            <p className="font-semibold text-slate-700 text-sm">Valor</p>
+            <p className="font-semibold text-slate-700 text-sm">Valor Proposto</p>
           </div>
           <div className="p-4">
             <div className="relative">
@@ -259,68 +216,12 @@ export default function NewRequestPage({ onBack, onSuccess }: NewRequestPageProp
                 onChange={e => update('proposed_value', e.target.value)}
                 placeholder="150,00"
                 min="50"
-                max="500"
                 step="0.01"
                 required
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-2">Mínimo R$ 50,00 - Máximo R$ 500,00</p>
-            {Number(form.proposed_value) >= 50 && (
-              <div className="mt-3 bg-slate-50 rounded-xl p-3 text-xs space-y-1">
-                <div className="flex justify-between text-slate-600">
-                  <span>Valor do serviço</span>
-                  <span>R$ {Number(form.proposed_value).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Taxa plataforma (7,5%)</span>
-                  <span>-R$ {fee.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-emerald-700 pt-1.5 border-t border-slate-200">
-                  <span>Cuidador recebe</span>
-                  <span>R$ {net.toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Payment method */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2">
-            <CreditCard size={16} className="text-blue-600" />
-            <p className="font-semibold text-slate-700 text-sm">Forma de Pagamento</p>
-          </div>
-          <div className="p-4 space-y-3">
-            {PAYMENT_METHODS.map(pm => {
-              const Icon = pm.icon;
-              const selected = form.payment_method === pm.id;
-              return (
-                <button
-                  key={pm.id}
-                  type="button"
-                  onClick={() => update('payment_method', pm.id)}
-                  className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-all text-left ${
-                    selected ? pm.color : pm.inactiveColor
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    selected ? 'bg-white/60' : 'bg-slate-50'
-                  }`}>
-                    <Icon size={20} className={selected ? pm.iconColor : 'text-slate-400'} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">{pm.label}</p>
-                    <p className="text-xs opacity-70 mt-0.5">{pm.description}</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    selected ? 'border-current' : 'border-slate-300'
-                  }`}>
-                    {selected && <div className="w-2.5 h-2.5 rounded-full bg-current" />}
-                  </div>
-                </button>
-              );
-            })}
+            <p className="text-xs text-slate-500 mt-2">Valor mínimo R$ 50,00</p>
           </div>
         </div>
 
