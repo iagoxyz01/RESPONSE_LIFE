@@ -62,7 +62,7 @@ async function verifyAdminToken(req: Request): Promise<{ admin: any } | null> {
   const hash = await hashToken(token);
   const { data } = await supabase
     .from("admin_sessions")
-    .select("*, admin_users(*, admin_roles(*))")
+    .select("*, admin_users(*, admin_roles!admin_users_role_id_fkey(*))")
     .eq("token_hash", hash)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
