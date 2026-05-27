@@ -112,13 +112,8 @@ export default function RequestDetailPage({ requestId, onBack, onOpenChat, onOpe
           table: 'care_requests',
           filter: `id=eq.${requestId}`,
         },
-        (payload) => {
-          const updated = payload.new as CareRequest;
-          setRequest(prev => prev ? { ...prev, ...updated } : updated);
-          // Se o status mudou para scheduled/in_progress, rebuscar candidatos também
-          if (['scheduled', 'in_progress', 'awaiting_payment', 'completed'].includes(updated.status)) {
-            fetchData();
-          }
+        () => {
+          fetchData();
         }
       )
       .subscribe();
