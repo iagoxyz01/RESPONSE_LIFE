@@ -1,4 +1,4 @@
-const CACHE_NAME = 'response-live-v4';
+const CACHE_NAME = 'response-life-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

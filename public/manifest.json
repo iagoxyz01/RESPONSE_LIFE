@@ -1,6 +1,6 @@
 {
-  "name": "Response Live",
-  "short_name": "Response Live",
+  "name": "Response Life",
+  "short_name": "Response Life",
   "description": "Plataforma de conexão entre pacientes e cuidadores de saúde",
   "start_url": "/",
   "display": "standalone",
