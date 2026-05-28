@@ -38,7 +38,7 @@ export default function Layout({ children, page, onNavigate, hideNav }: LayoutPr
             <Heart size={16} className="text-white fill-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900 leading-none">Response Live</h1>
+            <h1 className="text-sm font-bold text-slate-900 leading-none">Response Life</h1>
             <p className="text-[10px] text-slate-400 leading-none mt-0.5">
               {profile?.user_type === 'caregiver' ? 'Cuidador' : 'Paciente'}
             </p>
