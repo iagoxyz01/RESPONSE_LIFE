@@ -31,7 +31,7 @@ export default function LoginPage({ onShowRegister, registeredSuccess }: LoginPa
         <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-2xl shadow-blue-500/30">
           <Heart size={32} className="text-white fill-white" />
         </div>
-        <h1 className="text-2xl font-bold text-white mb-1">Response Live</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">Response Life</h1>
         <p className="text-blue-300 text-sm text-center mb-8">Cuidado com segurança e monitoramento em tempo real</p>
 
         {/* Features */}
